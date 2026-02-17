@@ -1,8 +1,5 @@
-from http.server import BaseHTTPRequestHandler, HTTPServer
-from urllib.parse import parse_qsl, urlparse
-
-
-
+from http.server import HTTPServer, BaseHTTPRequestHandler
+from urllib.parse import urlparse, parse_qsl
 
 
 class WebRequestHandler(BaseHTTPRequestHandler):
@@ -11,65 +8,61 @@ class WebRequestHandler(BaseHTTPRequestHandler):
         return urlparse(self.path)
 
     def query_data(self):
-        return dict(parse_qsl(self.url().query))
+        url = self.url()
+        return dict(parse_qsl(url.query))
 
     def do_GET(self):
 
-        ruta = self.url().path
-        query = self.query_data()
+        url = urlparse(self.path)
+        query = dict(parse_qsl(url.query))
+        ruta = url.path
 
-        #PARA OBSERVAR EN LA TERMINAL 
-        print("----- REQUEST -----")
-        print("Host:", self.headers.get("Host"))
-        print("User-Agent:", self.headers.get("User-Agent"))
-        print("Ruta:", ruta)
+        # HOME PAGE
+        if ruta == "/":
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html")
+            self.end_headers()
 
-        #CONTENIDO 
-        contenido = {
-            "/": self.home_page(),
-            "/proyecto/web-uno": "<h1>Proyecto: web-uno</h1>",
-            "/proyecto/web-dos": "<h1>Proyecto: web-dos</h1>",
-            "/proyecto/web-tres": "<h1>Proyecto: web-tres</h1>",
-        }
+            with open("home.html", "r", encoding="utf-8") as f:
+                contenido = f.read()
 
-        # HTML DINAMICO
-        if ruta.startswith("/proyecto/") and "autor" in query:
-            proyecto = ruta.split("/")[-1]
-            respuesta = f"<h1>Proyecto: {proyecto} Autor: {query['autor']}</h1>"
-            self.responder(200, respuesta)
+            self.wfile.write(contenido.encode("utf-8"))
             return
 
-        #SITIO CON DICCIONARIO
-        if ruta in contenido:
-            self.responder(200, contenido[ruta])
-        else:
-            self.responder(404, "<h1>Error 404 - Página no encontrada</h1>")
+        # HTML dinámico
+        if ruta.startswith("/proyecto/"):
+            proyecto = ruta.split("/")[-1]
+            autor = query.get("autor", "desconocido")
 
-    # ----- MÉTODO PARA RESPONDER -----
-    def responder(self, codigo, contenido_html):
-        self.send_response(codigo)
+            respuesta = f"""
+            <html>
+            <head><title>Proyecto</title></head>
+            <body>
+            <h1>Proyecto: {proyecto}</h1>
+            <h2>Autor: {autor}</h2>
+            </body>
+            </html>
+            """
+
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html")
+            self.end_headers()
+            self.wfile.write(respuesta.encode("utf-8"))
+            return
+
+        # ERROR 404
+        self.send_response(404)
         self.send_header("Content-Type", "text/html")
         self.end_headers()
+        self.wfile.write(b"<h1>Error 404 - Pagina no encontrada</h1>")
 
-            #PARA VER TERMINAL 
-        print("----- RESPONSE -----")
-        print("Content-Type: text/html")
-        print("Server:", self.version_string())
-        print("Date:", self.date_time_string())
 
-        self.wfile.write(contenido_html.encode("utf-8"))
-
-    # ----- HOME PAGE -----
-    def home_page(self):
-        try:
-            with open("home.html", "r", encoding="utf-8") as f:
-                return f.read()
-        except:
-            return "<h1>No se encontró home.html</h1>"
+def run():
+    server_address = ("", 8000)
+    httpd = HTTPServer(server_address, WebRequestHandler)
+    print("Servidor corriendo en http://localhost:8000")
+    httpd.serve_forever()
 
 
 if __name__ == "__main__":
-    print("Servidor escuchando en puerto 8000")
-    server = HTTPServer(("0.0.0.0", 8000), WebRequestHandler)
-    server.serve_forever()
-
+    run()
