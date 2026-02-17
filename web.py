@@ -72,3 +72,4 @@ if __name__ == "__main__":
     print("Servidor escuchando en puerto 8000")
     server = HTTPServer(("0.0.0.0", 8000), WebRequestHandler)
     server.serve_forever()
+
